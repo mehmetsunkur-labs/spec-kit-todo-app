@@ -36,8 +36,10 @@ npm start        # production: a single process on :3000 serving the API and the
 
 ```bash
 npm run lint         # ESLint (also bans dangerouslySetInnerHTML) and tsc --noEmit
-npm test             # Vitest: unit, contract and component tests for all workspaces
-npm run test:e2e     # Playwright: all user stories at 320 px and 1280 px, plus an axe scan
+npm test             # Vitest: unit, contract, integration and component tests, then a check that
+                     # every response in contracts/openapi.yaml is asserted by a contract test
+npm run test:e2e     # Playwright against a production build: every user story at 320 px and
+                     # 1280 px, edge cases, an axe accessibility scan and performance budgets
 ```
 
 Expected result: every test passes, with no accessibility violations of serious or critical impact.
@@ -89,4 +91,4 @@ Each scenario matches a spec user story. Playwright automates all of them.
 
 - Open two tabs. Delete a todo in tab A, then toggle it in tab B. **Expect** "This task no longer exists." and tab B's list to refresh.
 - Add `<img src=x onerror=alert(1)>`, "日本語テキスト 🎉", and a 500-character string with no spaces. **Expect** each to be shown literally and wrapped, with no script running and no horizontal scroll at 320 px.
-- Seed 500 todos (`npm run seed -- 500` in `backend`), then add, toggle and delete. **Expect** the UI to update in under 100 ms (SC-007).
+- Seed 500 todos (`npm run seed -w backend -- 500`), then add, toggle and delete. **Expect** the UI to update in under 100 ms (SC-007).

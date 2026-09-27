@@ -61,8 +61,8 @@ The spec leaves all technology choices to planning. Each decision below resolves
 
 ## 9. Ordering
 
-- **Decision**: Newest first: `ORDER BY created_at DESC, id DESC`. The order is always decided by the server; optimistic adds are inserted at the top.
-- **Rationale**: FR-010. The `id` tiebreak makes the order fully deterministic when two todos share a millisecond.
+- **Decision**: Newest first: `ORDER BY created_at DESC, rowid DESC`. The order is always decided by the server; optimistic adds are inserted at the top.
+- **Rationale**: FR-010. The `rowid` tiebreak keeps todos created in the same millisecond in insertion order. (An earlier `id DESC` tiebreak was deterministic but shuffled them, because ids are random UUIDs; found in testing and fixed by migration 002.)
 
 ## 10. Future owner support (FR-019)
 

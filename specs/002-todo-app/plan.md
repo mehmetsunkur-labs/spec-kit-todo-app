@@ -165,7 +165,7 @@ In production, the backend serves the built frontend, so there is one process an
 |---|---|
 | FR-001, FR-014 | `useTodos` load status and `LoadState`; `GET /api/todos` |
 | FR-002, FR-003, FR-005, FR-015 | `shared/todo.ts` schema, used in `TodoForm` and `routes.ts`; DB `CHECK` constraints |
-| FR-004, FR-009, FR-010 | [data-model.md](./data-model.md); `formatTime.ts`; `ORDER BY created_at DESC, id DESC` |
+| FR-004, FR-009, FR-010 | [data-model.md](./data-model.md); `formatTime.ts`; `ORDER BY created_at DESC, rowid DESC` |
 | FR-006, FR-007 | `PATCH` and `DELETE` in [openapi.yaml](./contracts/openapi.yaml) |
 | FR-008, FR-016, FR-017 | [ui-contract.md](./contracts/ui-contract.md); `styles.css`; Playwright at 320 px and axe scans |
 | FR-011 | SQLite WAL; restart integration test |

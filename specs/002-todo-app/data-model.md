@@ -47,7 +47,7 @@ These are defined once in `shared/src/todo.ts` and used by both frontend and bac
 
 ### Ordering
 
-The list is always returned newest first: `created_at DESC, id DESC` (FR-010).
+The list is always returned newest first: `created_at DESC, rowid DESC` (FR-010). Ties on `created_at` (todos created in the same millisecond) are broken by insertion order, SQLite's implicit `rowid`, not by the random UUID `id`, which would shuffle them.
 
 ## Storage schema (SQLite)
 
@@ -65,6 +65,15 @@ CREATE TABLE todos (
 
 CREATE INDEX idx_todos_owner_created ON todos (owner_id, created_at DESC, id DESC);
 ```
+
+Migration `002_order_ties_by_insertion.sql` replaces that index to match the `rowid` tiebreak:
+
+```sql
+DROP INDEX idx_todos_owner_created;
+CREATE INDEX idx_todos_owner_created_at ON todos (owner_id, created_at);
+```
+
+Every SQLite index entry already ends with the `rowid`, so a reverse scan of this index serves `ORDER BY created_at DESC, rowid DESC` without a sort.
 
 - The SQLite `CHECK` constraints are a last-resort guard. The authoritative validation is the shared schema. SQLite's `length()` counts characters, which matches code points for valid UTF-8.
 - Connection pragmas: `journal_mode = WAL`, `synchronous = NORMAL`, `foreign_keys = ON`.
