@@ -1,21 +1,3 @@
-<!--
-Sync Impact Report
-- Version change: (unversioned template) → 1.0.0
-- Modified principles (placeholder → defined):
-  - [PRINCIPLE_1_NAME] → I. Simplicity & Scope Discipline
-  - [PRINCIPLE_2_NAME] → II. Contract-First, Single Source of Validation
-  - [PRINCIPLE_3_NAME] → III. Tested Acceptance Criteria
-  - [PRINCIPLE_4_NAME] → IV. Accessible, Responsive User Experience
-  - [PRINCIPLE_5_NAME] → V. Durable Data & Graceful Failure
-- Added sections: Security & Performance Standards; Development Workflow & Quality Gates
-- Removed sections: none
-- Dependent artifacts:
-  - specs/002-todo-app/plan.md ⚠ Constitution Check was written against the empty template;
-    re-run /speckit-plan (or update the check by hand) against v1.0.0
-  - .specify/templates/* ✅ no change required (they read the constitution at runtime)
-- Deferred TODOs: none
--->
-
 # Todo App Constitution
 
 ## Core Principles
