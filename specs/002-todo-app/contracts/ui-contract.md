@@ -9,9 +9,10 @@ This file defines the user-facing interface that tests (React Testing Library an
 | Element | Role / accessible name | Behavior | Req |
 |---|---|---|---|
 | Page heading | `heading` level 1, "Todos" | Always visible | FR-001 |
-| New task input | `textbox`, label "New task" | Single-line, `maxLength=500`. Enter submits. Keeps focus after a successful add, then is cleared | FR-002, FR-017 |
+| New task input | `textbox`, label "New task" | Single-line, with **no** `maxLength` attribute (HTML counts UTF-16 units; the limit is 500 Unicode code points). Enter submits. Keeps focus after a successful add, then is cleared | FR-002, FR-017 |
+| Character counter | text "{n}/500", referenced by the input's `aria-describedby` | Counts code points as the user types | FR-003 |
 | Add button | `button`, "Add task" | Submits the form. Doesn't create anything if the input is blank | FR-002, FR-003 |
-| Input validation message | text linked by `aria-describedby`, `aria-invalid=true` | Shown for blank input or >500 characters | FR-003 |
+| Input validation message | text linked by `aria-describedby`, `aria-invalid=true` | Shown on submit for blank input or more than 500 characters; nothing is created | FR-003 |
 | Todo list | `list`, label "Tasks" | Items are ordered newest first | FR-010 |
 | Todo item | `listitem` | Contains the checkbox, description, time and delete button | — |
 | Completion toggle | `checkbox`, name = the description | Checked = completed. Space toggles it | FR-006, FR-017 |

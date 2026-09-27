@@ -41,7 +41,7 @@ This is a web application using npm workspaces: `shared/`, `backend/`, `frontend
     - `start`: `npm start -w backend`.
     - `test`: `npm test --workspaces --if-present`.
     - `test:e2e`: `npm test -w e2e`.
-    - `lint`: `eslint . && tsc -b` or a per-workspace `tsc --noEmit`.
+    - `lint`: `eslint . && npm run typecheck --workspaces --if-present`. Every workspace's `package.json` defines `typecheck: tsc --noEmit -p tsconfig.json`.
   - Also create `.gitignore` covering `node_modules/`, `dist/`, `data/`, `.env`, `e2e/.tmp/`, `playwright-report/` and `test-results/`.
 - [ ] T002 [P] Create `tsconfig.base.json` with `strict: true`, `target: ES2023`, `module: NodeNext`, `moduleResolution: NodeNext`, `esModuleInterop`, `skipLibCheck`, `declaration` and `sourceMap`. Each workspace tsconfig extends this file.
 - [ ] T003 [P] Create `eslint.config.js` (flat config):
@@ -73,7 +73,8 @@ This is a web application using npm workspaces: `shared/`, `backend/`, `frontend
   - `frontend/tests/setup.ts` importing `@testing-library/jest-dom/vitest`.
   - `frontend/src/vite-env.d.ts` declaring `VITE_API_BASE_URL`.
 - [ ] T007 [P] Create the `e2e/` workspace:
-  - `e2e/package.json`: dev dependencies `@playwright/test` and `@axe-core/playwright`; script `test: playwright test`.
+  - `e2e/package.json`: dev dependencies `@playwright/test` and `@axe-core/playwright`; scripts `test: playwright test` and `typecheck: tsc --noEmit -p tsconfig.json`.
+  - `e2e/tsconfig.json` extending `../tsconfig.base.json`, with `noEmit`.
   - `e2e/playwright.config.ts`:
     - `testDir: tests`, `fullyParallel: false`, `workers: 1`, `baseURL: http://localhost:3100`.
     - Projects:
@@ -151,7 +152,17 @@ This is a web application using npm workspaces: `shared/`, `backend/`, `frontend
   - The `TodoRepository` interface exactly as in data-model.md: `list(ownerId)`, `create(ownerId, description)`, `setCompleted(ownerId, id, completed): Todo | null`, `delete(ownerId, id): boolean`.
   - A factory `createSqliteTodoRepository(db)` that prepares its statements once and maps rows (`completed` 0/1 → boolean, snake_case → camelCase).
   - Method bodies are added in the story phases. Until then, the unimplemented methods throw `new Error('not implemented')`.
-- [ ] T017 Implement `backend/src/app.ts`. It exports `buildApp({ db, logger }: { db: Database; logger?: boolean | object }): FastifyInstance`, which:
+- [ ] T017 [P] Create the backend test helper `backend/tests/helpers.ts`:
+  - `createTestApp()` makes a temporary directory with `fs.mkdtempSync(os.tmpdir())`, opens the DB file in it, builds the app with the logger off (it imports `buildApp` from `backend/src/app.ts`, which T019 creates; until then, tests that use the helper fail, as intended), and returns `{ app, db, dbPath, close }`. `close` closes both and removes the directory.
+  - `reopenTestApp(dbPath)` restarts the app against the same file.
+  - `loadOpenApi()` parses `specs/002-todo-app/contracts/openapi.yaml` with `yaml`.
+  - `expectMatchesSchema(body, schemaName)` validates `body` against `components.schemas[schemaName]` using Fastify's bundled Ajv.
+- [ ] T018 Write the failing contract test `backend/tests/contract/health.test.ts` **before** `app.ts` exists (Constitution III). It checks:
+  - `GET /api/health` → 200 `{ status: 'ok' }`.
+  - The response carries a `content-security-policy` header containing `default-src 'self'`.
+  - `GET /api/nope` → 404 matching `ErrorResponse`.
+  - A POST with a 20 KB body → 400 `VALIDATION_ERROR`.
+- [ ] T019 Implement `backend/src/app.ts` so that T018 passes. It exports `buildApp({ db, logger }: { db: Database; logger?: boolean | object }): FastifyInstance`, which:
   - Creates Fastify with `bodyLimit: 16384`, `ajv: { customOptions: { removeAdditional: false, coerceTypes: false } }` (so `"yes"` or `5` is never coerced), and the logger.
   - Registers `@fastify/helmet` with CSP `default-src 'self'` (`script-src 'self'`, `style-src 'self'`, `img-src 'self' data:`).
   - Sets `errorHandler` and `notFoundHandler` from T014.
@@ -159,17 +170,7 @@ This is a web application using npm workspaces: `shared/`, `backend/`, `frontend
   - Registers `GET /api/health`, which runs `SELECT 1` and returns `{ status: 'ok' }`.
   - Registers the todos routes plugin (`backend/src/todos/routes.ts`, initially empty) under the prefix `/api`.
   - If `frontend/dist` exists (resolved from the backend package root as `../frontend/dist`), registers `@fastify/static` for it, with a SPA fallback that serves `index.html` for non-`/api` GET requests.
-- [ ] T018 Implement `backend/src/server.ts`. It calls `loadConfig()`, `openDatabase()` and `buildApp()`, then `listen({ port, host: '0.0.0.0' })`. On `SIGINT` and `SIGTERM`, it awaits `app.close()`, calls `db.close()`, then exits with code 0.
-- [ ] T019 [P] Create the backend test helper `backend/tests/helpers.ts`:
-  - `createTestApp()` makes a temporary directory with `fs.mkdtempSync(os.tmpdir())`, opens the DB file in it, builds the app with the logger off, and returns `{ app, db, dbPath, close }`. `close` closes both and removes the directory.
-  - `reopenTestApp(dbPath)` restarts the app against the same file.
-  - `loadOpenApi()` parses `specs/002-todo-app/contracts/openapi.yaml` with `yaml`.
-  - `expectMatchesSchema(body, schemaName)` validates `body` against `components.schemas[schemaName]` using Fastify's bundled Ajv.
-- [ ] T020 [P] Write the contract test `backend/tests/contract/health.test.ts`, which checks:
-  - `GET /api/health` → 200 `{ status: 'ok' }`.
-  - The response carries a `content-security-policy` header containing `default-src 'self'`.
-  - `GET /api/nope` → 404 matching `ErrorResponse`.
-  - A POST with a 20 KB body → 400 `VALIDATION_ERROR`.
+- [ ] T020 Implement `backend/src/server.ts`. It calls `loadConfig()`, `openDatabase()` and `buildApp()`, then `listen({ port, host: '0.0.0.0' })`. On `SIGINT` and `SIGTERM`, it awaits `app.close()`, calls `db.close()`, then exits with code 0.
 
 ### Frontend core
 
@@ -195,7 +196,7 @@ This is a web application using npm workspaces: `shared/`, `backend/`, `frontend
   - CSS custom properties for colors, with WCAG AA contrast.
   - `body` has an explicit background; `main` has `max-width: 40rem; margin-inline: auto; padding-inline: 16px`.
   - `.visually-hidden` utility.
-  - Every button, checkbox label and input has a minimum 44 × 44 px hit area.
+  - Every button, text input **and checkbox itself** measures at least 44 × 44 px. Style the checkbox with `appearance: none; inline-size: 44px; block-size: 44px` plus a visible checked mark; a large label alone is not enough, because T072 measures each control's own box.
   - `:focus-visible` shows a 3 px outline.
   - `.todo-description { overflow-wrap: anywhere; }` and no element wider than the viewport.
   - `@media (prefers-reduced-motion: reduce)` disables transitions.
@@ -225,14 +226,14 @@ This is a web application using npm workspaces: `shared/`, `backend/`, `frontend
   - `GET /api/todos` on an empty DB → 200 `{ items: [] }`.
   - `POST /api/todos {"description":"  Buy milk  "}` → 201, with a `Location` header of `/api/todos/{id}` and a `Todo` whose description is `"Buy milk"` and `completed` is `false`.
   - A subsequent GET lists items newest first.
-  - Each of these → 400 `VALIDATION_ERROR` with a `details[0].field` of `description`:
+  - Each of these → 400 `VALIDATION_ERROR` with a `details[0].field` of `description`, except where noted:
     - `""`
     - `"   "`
     - 501 characters
     - `"a\nb"`
     - a missing `description`
     - `{"description": 5}`
-    - an extra property `{"description":"x","completed":true}`
+    - an extra property `{"description":"x","completed":true}` (here `details[0].field` is `completed`)
   - Invalid JSON → 400.
   - 500 emoji → 201.
   - Markup text is returned byte for byte, unescaped.
@@ -243,10 +244,12 @@ This is a web application using npm workspaces: `shared/`, `backend/`, `frontend
   - On success, the item is replaced with the server `Todo`, keeping its position.
   - `add` returns `true` on success.
 - [ ] T032 [P] [US1] Write the component tests in `frontend/tests/TodoForm.test.tsx`. They check that:
-  - There is a textbox labelled "New task" with `maxLength` 500, and a button "Add task".
+  - There is a textbox labelled "New task" with **no** `maxLength` attribute (HTML counts UTF-16 units, but the limit is 500 code points), and a button "Add task".
+  - A counter linked by `aria-describedby` shows "0/500", and "3/500" after typing `🎉🎉🎉` (code points, via `countCodePoints`).
   - Typing and pressing Enter calls `onAdd` with the trimmed text, clears the input, and keeps focus on it.
   - Submitting `"   "` does not call `onAdd`, sets `aria-invalid="true"`, and shows "Please enter a task description." linked by `aria-describedby`.
-  - Pasting 501 characters is rejected with "Descriptions can be at most 500 characters." (validated with `parseDescription` from `@todo/shared`).
+  - Entering 501 characters and submitting does not call `onAdd` and shows "Descriptions can be at most 500 characters." (validated with `parseDescription` from `@todo/shared`).
+  - Entering 500 emoji and submitting calls `onAdd` with all 500.
 - [ ] T033 [P] [US1] Write the component tests in `frontend/tests/TodoList.test.tsx`. They check that:
   - With no items, "No tasks yet. Add one above to get started." is shown.
   - With items, a `list` named "Tasks" has one `listitem` per todo, in the given order.
@@ -271,7 +274,7 @@ This is a web application using npm workspaces: `shared/`, `backend/`, `frontend
   - `POST /todos`:
     - JSON body schema: `{ type: 'object', required: ['description'], additionalProperties: false, properties: { description: { type: 'string' } } }`.
     - The handler runs `parseDescription` from `@todo/shared` and throws `validationError(message, [{ field: 'description', message }])` on failure. Otherwise it creates the todo, sets `Location`, and replies 201.
-  - Custom Ajv errors for extra or missing properties must map to `field: 'description'` (or the property name) in `details`.
+  - Map Ajv errors to `details[{ field, message }]` with the offending property name: `description` when missing or of the wrong type, and the extra property's own name (e.g. `completed`) for `additionalProperties` errors.
   - T029 and T030 must pass.
 - [ ] T037 [US1] Implement `frontend/src/state/useTodos.ts`:
   - State: `{ status: 'loading' | 'ready' | 'error'; items: ViewTodo[]; notice: { kind: 'error' | 'info'; message: string } | null }`, where `ViewTodo = Todo & { key: string; pending?: boolean }` and `key` is `id` or `temp-<n>`.
@@ -279,8 +282,8 @@ This is a web application using npm workspaces: `shared/`, `backend/`, `frontend
   - The hook loads on mount and exposes `{ state, add(description): Promise<boolean>, reload(), dismissNotice() }`.
   - T031 must pass.
 - [ ] T038 [P] [US1] Implement `frontend/src/components/TodoForm.tsx` according to ui-contract.md:
-  - A `<form>` containing a visible `<label for="new-task">New task</label>`, an `<input id="new-task" maxLength={500} autoComplete="off">`, and `<button type="submit">Add task</button>`.
-  - Client validation uses `parseDescription`, with the error in `<p id="new-task-error">` wired to `aria-invalid` and `aria-describedby`.
+  - A `<form>` containing a visible `<label for="new-task">New task</label>`, an `<input id="new-task" autoComplete="off">` with **no** `maxLength`, a counter `<span id="new-task-count">{countCodePoints(value)}/500</span>`, and `<button type="submit">Add task</button>`.
+  - Client validation uses `parseDescription` on submit, with the error in `<p id="new-task-error">` wired to `aria-invalid` and `aria-describedby` (which references both the counter and the error).
   - Props: `onAdd(description): Promise<boolean>` and `disabled`.
   - On submit: clear the input and keep focus.
   - T032 must pass.
@@ -324,7 +327,8 @@ This is a web application using npm workspaces: `shared/`, `backend/`, `frontend
 - [ ] T045 [P] [US2] Add toggle cases to `frontend/tests/useTodos.test.tsx`:
   - `toggle(key, true)` sets `completed: true` straight away, then calls `updateTodo(id, true)` with the **absolute** value.
   - On success, the item is replaced with the server copy.
-  - Two quick `toggle` calls end in the last requested state.
+  - **Out-of-order responses**: with manually controlled mocked promises, call `toggle(key, true)` then `toggle(key, false)`. Only one `updateTodo` is in flight at a time. When the first resolves (`completed: true`), a second `updateTodo(id, false)` is sent. The item shows `false` throughout and ends `false`, matching the server's last write.
+  - Three quick toggles (true, false, true) send at most two requests and end `true`.
 - [ ] T046 [P] [US2] Write the component tests in `frontend/tests/TodoItem.test.tsx`:
   - The `checkbox` has the todo's description as its accessible name and is checked when `completed`.
   - Clicking it, or pressing Space, calls `onToggle(key, !completed)`.
@@ -344,7 +348,12 @@ This is a web application using npm workspaces: `shared/`, `backend/`, `frontend
   - Body schema: `{ type: 'object', required: ['completed'], additionalProperties: false, properties: { completed: { type: 'boolean' } } }`.
   - Throw `notFound()` on `null`. Otherwise reply 200 with the `Todo`.
   - T043 and T044 must pass.
-- [ ] T050 [US2] Add the `toggleOptimistic`, `toggleConfirmed` and `toggleFailed` actions to `frontend/src/state/useTodos.ts`, and expose `toggle(key, completed)`. It keeps the previous value for rollback in US4 and ignores items that still have a `tempId`. T045 must pass.
+- [ ] T050 [US2] Add the `toggleOptimistic`, `toggleConfirmed` and `toggleFailed` actions to `frontend/src/state/useTodos.ts`, and expose `toggle(key, completed)`:
+  - Per item, track `confirmedCompleted` (the last value the server confirmed) and `desiredCompleted` (the last value the user asked for). `toggle` sets `desiredCompleted` and the displayed `completed` straight away.
+  - Keep **at most one PATCH in flight per item**. If none is in flight, send `desiredCompleted`. When a response arrives, set `confirmedCompleted` from it; if `desiredCompleted` differs, send another PATCH with it. Only replace the item with the server copy when nothing more is queued, so a stale response never overwrites a newer choice.
+  - Rollback for US4 restores `confirmedCompleted`.
+  - Ignore toggles on items that still have a `tempId`.
+  - T045 must pass.
 - [ ] T051 [US2] Update `frontend/src/components/TodoItem.tsx`:
   - Add `<input type="checkbox" id={`todo-${key}`} checked={completed} onChange={() => onToggle(key, !completed)}>` with `<label htmlFor>` wrapping the description, so the checkbox's name is the description.
   - Add `data-completed` and the `is-completed` class.
@@ -384,6 +393,7 @@ This is a web application using npm workspaces: `shared/`, `backend/`, `frontend
   - Seed three todos and delete the middle one: it's gone straight away (US3-AS1) and focus is on the next item.
   - Reload: still gone, and the others are unchanged (US3-AS2).
   - Delete the rest: the empty state is shown (US3-AS3).
+  - **Keyboard only** (FR-017): seed two todos, Tab to "Delete task: …" and press Enter. The item is gone and focus is on the remaining item's checkbox. Delete that one the same way: focus moves to the "New task" input.
 
 ### Implementation for User Story 3
 
@@ -409,7 +419,7 @@ This is a web application using npm workspaces: `shared/`, `backend/`, `frontend
 - [ ] T062 [P] [US4] Add failure cases to `frontend/tests/useTodos.test.tsx`:
   - If `listTodos` rejects → `status: 'error'`. `reload()` → `loading`, then `ready`.
   - If `add` fails → the temporary item is removed, the notice is "Couldn't save your change. Please try again.", and `add` resolves to `false`.
-  - If `toggle` fails → `completed` goes back to its previous value.
+  - If `toggle` fails → `completed` goes back to the last server-confirmed value (`confirmedCompleted`), and any queued value is dropped.
   - If `remove` fails → the item is put back at its original index.
   - If `toggle` or `remove` fails with `ApiError` code `NOT_FOUND` → the notice is "This task no longer exists." and `listTodos` is called again (a reload).
   - A failure on one item leaves the other items and their pending changes alone.
@@ -427,7 +437,7 @@ This is a web application using npm workspaces: `shared/`, `backend/`, `frontend
 
 - [ ] T066 [US4] Implement rollback in `frontend/src/state/useTodos.ts`:
   - `addFailed` removes the temporary item.
-  - `toggleFailed` restores the previous `completed`.
+  - `toggleFailed` restores `confirmedCompleted` and clears the queued value.
   - `removeFailed` reinserts the item at its stored index.
   - Every failure sets the notice "Couldn't save your change. Please try again."
   - A `NOT_FOUND` error sets "This task no longer exists." and calls `reload()`.
@@ -456,7 +466,7 @@ This is a web application using npm workspaces: `shared/`, `backend/`, `frontend
   - `<img src=x onerror=alert(1)>` is shown as literal text, and no dialog fires (`page.on('dialog')` fails the test) (FR-018).
   - `"日本語テキスト 🎉"` round-trips exactly after a reload.
   - A 500-character description with no spaces wraps, and `document.documentElement.scrollWidth <= clientWidth` holds on `mobile-320` (FR-016).
-  - The input will not take more than 500 characters.
+  - Typing 501 characters and submitting shows "Descriptions can be at most 500 characters." and creates nothing. 500 emoji can be added and round-trip after a reload.
   - Two quick clicks on the same checkbox, and a double-click on delete, end in a consistent state with no error notice.
   - **Two tabs**: open a second `page` in the same context. Delete a todo in page A, then toggle it in page B: B shows "This task no longer exists." and its list refreshes without the todo.
 - [ ] T072 [P] Write the Playwright spec `e2e/tests/a11y.spec.ts`. It runs `new AxeBuilder({ page }).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze()` in the empty, populated (with completed items), loading and error states, and asserts that there are no violations of impact `serious` or `critical`. It also checks that every interactive element's bounding box is at least 44 × 44 px on `mobile-320`.
@@ -466,7 +476,11 @@ This is a web application using npm workspaces: `shared/`, `backend/`, `frontend
   - Measure navigation to a visible first list item: under 1000 ms.
   - For add, toggle and delete, measure from the input event to the DOM change with `performance.now()` inside `page.evaluate` and a `MutationObserver`: each under 100 ms.
   - Run it on `desktop-1280` only.
-- [ ] T075 Add contract coverage to `backend/tests/contract/openapi-coverage.test.ts`. It iterates every `paths.*.*.responses` status in `openapi.yaml` and asserts that a matching test case name exists in the contract suites, using a registry array that each contract test file exports (Constitution III). It fails if any documented response has no test.
+  - Also add `backend/tests/integration/perf.test.ts` (plan goal: API p95 under 50 ms). Seed 500 todos through the repository, then run 200 `app.inject` calls each for `GET /api/todos`, `POST`, `PATCH` and `DELETE`. Assert that the p95 of each is under 50 ms.
+- [ ] T075 Add contract coverage checking (Constitution III):
+  - `backend/tests/contract/coverage.ts` exports `covered(method: string, path: string, status: number)`, which appends `"POST /todos 400"` style keys to a JSON file in the Vitest temp dir (`coverage-keys.json`).
+  - Every contract test calls `covered(...)` next to each response assertion (the health test from T018 and the story contract tests T029, T043 and T053).
+  - `backend/vitest.config.ts` sets `globalTeardown: 'tests/contract/check-coverage.ts'`. That file loads `openapi.yaml`, builds every `METHOD path status` key from `paths.*.*.responses`, and throws (failing the run) listing any key that was never recorded.
 - [ ] T076 [P] Write `README.md` at the repository root with a project summary, the prerequisites, a pointer to `specs/002-todo-app/quickstart.md`, the scripts table, the environment variables and the architecture overview (with links to plan.md and the contracts).
 - [ ] T077 Verify the production build: `npm run build && npm start`. Then check that `http://localhost:3000/` serves the SPA with the CSP header, that `/api/health` is ok, and that a deep link like `/anything` falls back to `index.html`. Fix any path problems in `backend/src/app.ts`.
 - [ ] T078 Run the full gate: `npm run lint && npm test && npm run test:e2e` must all pass with zero lint errors. Then walk through every manual scenario in `specs/002-todo-app/quickstart.md` (including the curl smoke test and the server restart) and update the quickstart wherever the actual commands or output differ.
@@ -479,7 +493,7 @@ This is a web application using npm workspaces: `shared/`, `backend/`, `frontend
 
 - **Setup (Phase 1)**: No dependencies. T008 depends on T001–T007.
 - **Foundational (Phase 2)**: Depends on Setup and BLOCKS every user story.
-  - Within it: T010 depends on T009. T013 depends on T012. T016 depends on T010. T017 depends on T013–T016. T018 depends on T011 and T017. T020 depends on T017 and T019. T022 depends on T021. T024 depends on T023. T026 depends on T025.
+  - Within it: T010 depends on T009. T013 depends on T012. T016 depends on T010. T017 depends on T013. T018 depends on T017. T019 depends on T014–T016 and T018. T020 depends on T011 and T019. T022 depends on T021. T024 depends on T023. T026 depends on T025.
 - **US1 (Phase 3)**: Depends on Foundational. This is the MVP.
 - **US2 (Phase 4)** and **US3 (Phase 5)**: Each depends on US1 (for create and the list), not on each other. They can run in parallel after US1, but both touch `repository.ts`, `routes.ts`, `useTodos.ts` and `TodoItem.tsx`, so merge them one after the other.
 - **US4 (Phase 6)**: Depends on US1. Its toggle and remove rollback tests (T062) and the e2e spec (T065) also need US2 and US3, so do it after them.
@@ -501,7 +515,7 @@ Setup → Foundational → US1 (MVP) ─┬─→ US2 ─┐
 ### Parallel Opportunities
 
 - Setup: T002–T007 all run in parallel after T001.
-- Foundational: T009, T011, T012, T014, T015, T019, T021, T023, T025 and T027 are independent files and can run in parallel.
+- Foundational: T009, T011, T012, T014, T015, T017, T021, T023, T025 and T027 are independent files and can run in parallel.
 - Each story: all test tasks marked [P] run in parallel. In US1, T038 and T039 (form and item components) run in parallel after T037.
 - US2 and US3 can be built by different people after US1.
 - Polish: T071, T072, T073 and T076 run in parallel.

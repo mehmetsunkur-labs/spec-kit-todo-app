@@ -71,7 +71,7 @@ While data is loading, the user sees a loading indicator instead of a blank or m
 
 1. **Given** the todo list is still loading, **When** the user opens the app, **Then** a loading indicator is shown until the list or an error appears.
 2. **Given** the list cannot be loaded, **When** loading fails, **Then** the user sees an error message with a way to retry.
-3. **Given** the user performs an add, complete, or delete action, **When** saving that change fails, **Then** the list reverts to the last saved state, the user sees a message explaining the change was not saved, and the rest of the app keeps working.
+3. **Given** the user performs an add, complete, or delete action, **When** saving that change fails, **Then** the affected todo (or, for a failed add, the list) reverts to its last saved state, the user sees a message explaining the change was not saved, and the rest of the app keeps working.
 4. **Given** the user was adding a todo, **When** that save fails, **Then** the description they typed is not lost and can be resubmitted.
 
 ---
@@ -103,7 +103,7 @@ While data is loading, the user sees a loading indicator instead of a blank or m
 - **FR-010**: System MUST list todos in a consistent, predictable order: newest first by creation time.
 - **FR-011**: System MUST save every create, status change, and delete durably so that the data is unchanged after a page refresh, browser restart, or server restart.
 - **FR-012**: System MUST reflect the result of each user action in the interface immediately, without a full page reload.
-- **FR-013**: If a change cannot be saved, the system MUST inform the user, return the displayed list to the last saved state, and keep the rest of the app usable.
+- **FR-013**: If a change cannot be saved, the system MUST inform the user, return the affected todo (or, for a failed add, the list) to its last saved state, and keep the rest of the app usable. Other todos and their pending changes are not affected.
 - **FR-014**: System MUST show a distinct empty state when there are no todos, a loading state while the list is being retrieved, and an error state with a retry option when retrieval fails.
 - **FR-015**: System MUST enforce the same validation rules when storing data as in the interface, so invalid todos are never saved even if the interface is bypassed, and MUST report invalid input or missing todos with clear, consistent errors.
 - **FR-016**: The interface MUST be fully usable on desktop and mobile screen sizes (down to 320 px wide) with touch and mouse input, without horizontal scrolling.

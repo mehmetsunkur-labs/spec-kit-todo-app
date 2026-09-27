@@ -33,7 +33,7 @@ The spec leaves all technology choices to planning. Each decision below resolves
 ## 5. Description length and text handling
 
 - **Decision**: Trim leading and trailing whitespace, then count **Unicode code points** (`[...s].length`). The limit is 1–500. Store the text exactly as entered after trimming, with no Unicode normalization. A description is single-line text, so the UI uses a single-line input and the server rejects control characters (including newlines).
-- **Rationale**: Counting code points means one emoji counts as one character in most cases, which matches what users expect better than UTF-16 length. Not normalizing preserves "exactly as entered" (edge case: special characters, emoji and non-Latin text). The same function runs on both sides.
+- **Rationale**: Counting code points means one emoji counts as one character in most cases, which matches what users expect better than UTF-16 length. Not normalizing preserves "exactly as entered" (edge case: special characters, emoji and non-Latin text). The same function runs on both sides. The input therefore has **no** HTML `maxLength` (which counts UTF-16 units, and would cap emoji at 250). The UI shows a live "n/500" code-point counter and validates on submit.
 - **Alternatives considered**: Counting grapheme clusters with `Intl.Segmenter` is the most accurate, but costs more and brings little benefit at a 500 limit. Counting UTF-16 units is surprising for emoji.
 
 ## 6. Frontend framework and build
@@ -48,7 +48,8 @@ The spec leaves all technology choices to planning. Each decision below resolves
   - **On success**: replace the optimistic entry with the server's copy (the real `id` and timestamps).
   - **On failure**: undo that single change locally, show a message in an `aria-live` region, and for add, put the typed text back into the input (FR-013, US4-AS4).
   - **On 404** for toggle or delete (the todo was deleted in another tab): show "This task no longer exists", then reload the list from the server to get the true state.
-  - **Rapid repeated clicks**: the toggle sends the **absolute** target state (`completed: true/false`), not "flip", so repeating it is safe (idempotent). While a delete is in flight, the item is already removed from the list, so it can't be clicked twice.
+  - **Rapid repeated clicks**: the toggle sends the **absolute** target state (`completed: true/false`), not "flip", so repeating it is safe (idempotent). Requests for the same item are **serialized**: at most one PATCH is in flight per item. While it's in flight, further toggles only update the desired value; when the response arrives, one more PATCH is sent if the desired value differs. This prevents out-of-order responses from leaving the UI and server disagreeing. While a delete is in flight, the item is already removed from the list, so it can't be clicked twice.
+  - **Scope of rollback**: a failure undoes only the change that failed (the affected todo goes back to its last server-confirmed state). Other todos, including their own pending changes, are left alone.
 - **Rationale**: Meets the "<100 ms perceived" target (SC-003) without extra libraries, and keeps rollback logic in one tested place.
 - **Alternatives considered**: TanStack Query has excellent optimistic-update support but adds a dependency and concepts that aren't needed for one list. Redux is too much for this.
 

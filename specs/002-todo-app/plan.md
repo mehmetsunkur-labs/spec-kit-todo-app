@@ -172,7 +172,7 @@ In production, the backend serves the built frontend, so there is one process an
 | FR-012, FR-013 | Optimistic reducer with rollback and the status banner ([research.md §7](./research.md)) |
 | FR-018 | React text rendering; ESLint ban on `dangerouslySetInnerHTML`; CSP |
 | FR-019 | `owner_id` column, `TodoRepository(ownerId, …)`, `getOwnerId()` |
-| SC-003, SC-007 | `e2e/tests/perf`: timings for actions and initial load with 500 seeded todos |
+| SC-003, SC-007 | `e2e/tests/perf`: timings for actions and initial load with 500 seeded todos. `backend/tests/integration/perf.test.ts`: API p95 under 50 ms |
 
 ## Complexity Tracking
 
