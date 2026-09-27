@@ -592,7 +592,7 @@ Task: "T068 StatusBanner in frontend/src/components/StatusBanner.tsx"
 
 Where the build differs from the task text, and why:
 
-- **Versions**: TypeScript 5.9, Vite 7, Vitest 5, Zod 4, Fastify 5, React 19. ESLint stays on 9 because `eslint-plugin-react` does not support ESLint 10 yet.
+- **Versions**: TypeScript 5.9, Vite 8, Vitest 5, Zod 4, Fastify 5, React 19. The frontend first pinned Vite 7, but Vitest 5 installed Vite 8 at the root, and `@vitejs/plugin-react` then used Vite 8's built-in refresh plugin inside the Vite 7 dev server, so `npm run dev` failed with `Missing field moduleType`. Everything now uses one Vite 8 copy. ESLint stays on 9 because `eslint-plugin-react` does not support ESLint 10 yet.
 - **Build config**: each workspace has `tsconfig.json` (type-checks source and tests) and `tsconfig.build.json` (emits source only). `e2e/` and `frontend/` use `Bundler` module resolution.
 - **Root `npm test`** runs only the Vitest workspaces (`shared`, `backend`, `frontend`). Playwright runs through `npm run test:e2e`.
 - **Relative times** (T023/T024): `Intl.RelativeTimeFormat` `long` style in the user's locale ("now", "5 minutes ago", "yesterday") instead of the hard-coded English "just now" / "5 min ago".

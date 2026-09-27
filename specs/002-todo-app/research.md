@@ -38,7 +38,7 @@ The spec leaves all technology choices to planning. Each decision below resolves
 
 ## 6. Frontend framework and build
 
-- **Decision**: React 19 with Vite 7, plain CSS (CSS custom properties, mobile-first). No component library.
+- **Decision**: React 19 with Vite 8, plain CSS (CSS custom properties, mobile-first). No component library.
 - **Rationale**: This is the most widely known stack, so it's easy for future developers (maintainability). Vite gives fast dev reloads and a static production build. A handful of components doesn't justify a UI kit, and plain CSS keeps the bundle small, which helps the initial list appear within 1 s (SC-003).
 - **Alternatives considered**: Svelte and Solid produce smaller bundles but have smaller hiring pools. Vanilla TypeScript makes optimistic state and rollback harder to maintain. Tailwind adds build configuration for little gain.
 

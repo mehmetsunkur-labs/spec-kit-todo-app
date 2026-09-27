@@ -22,7 +22,7 @@ Technical approach:
 
 **Primary Dependencies**:
 - Backend: Fastify 5, `@fastify/static`, `@fastify/helmet`, better-sqlite3
-- Frontend: React 19, Vite 7
+- Frontend: React 19, Vite 8
 - Shared: Zod
 
 **Storage**: SQLite in a single file (WAL mode). Migrations are plain SQL files tracked by `PRAGMA user_version`.
