@@ -1,0 +1,12 @@
+node_modules/
+dist/
+build/
+coverage/
+package-lock.json
+e2e/.tmp/
+playwright-report/
+test-results/
+.specify/
+.claude/
+specs/
+docs/

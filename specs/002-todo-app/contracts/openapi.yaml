@@ -1,0 +1,188 @@
+openapi: 3.1.0
+info:
+  title: Todo App API
+  version: 1.0.0
+  description: |
+    REST API for the personal todo app (feature 002-todo-app).
+    All request and response bodies are JSON (UTF-8). All errors use the ErrorResponse envelope.
+    v1 has no authentication; every request is scoped to the implicit owner "local".
+servers:
+  - url: /api
+
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Liveness and readiness check (includes a database ping)
+      responses:
+        '200':
+          description: Service and database are available
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, const: ok }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /todos:
+    get:
+      operationId: listTodos
+      summary: List all todos, newest first
+      responses:
+        '200':
+          description: All todos, ordered by createdAt descending
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Todo' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post:
+      operationId: createTodo
+      summary: Create a todo (always starts active)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateTodoRequest' }
+      responses:
+        '201':
+          description: Todo created
+          headers:
+            Location:
+              schema: { type: string }
+              description: /api/todos/{id}
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Todo' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /todos/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      operationId: updateTodo
+      summary: Set a todo's completion status (idempotent)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateTodoRequest' }
+      responses:
+        '200':
+          description: The updated todo
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Todo' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    delete:
+      operationId: deleteTodo
+      summary: Permanently delete a todo
+      responses:
+        '204': { description: Deleted }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+components:
+  schemas:
+    Todo:
+      type: object
+      additionalProperties: false
+      required: [id, description, completed, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        description:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Trimmed, single-line text; length counted in Unicode code points.
+        completed: { type: boolean }
+        createdAt: { type: string, format: date-time, description: ISO 8601 UTC with milliseconds }
+        updatedAt: { type: string, format: date-time }
+      example:
+        id: 3f2b8c1e-6a4d-4b7e-9c2a-1d5e8f0a7b6c
+        description: Buy oat milk 🥛
+        completed: false
+        createdAt: '2026-09-27T10:15:30.123Z'
+        updatedAt: '2026-09-27T10:15:30.123Z'
+
+    CreateTodoRequest:
+      type: object
+      additionalProperties: false
+      required: [description]
+      properties:
+        description:
+          type: string
+          description: |
+            Trimmed by the server before validation. After trimming it must be 1–500 code points
+            and contain no control characters.
+
+    UpdateTodoRequest:
+      type: object
+      additionalProperties: false
+      required: [completed]
+      properties:
+        completed: { type: boolean }
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [VALIDATION_ERROR, NOT_FOUND, INTERNAL_ERROR]
+            message:
+              type: string
+              description: Human-readable message, safe to show to the user.
+            details:
+              type: array
+              description: Present for VALIDATION_ERROR; one entry per invalid field.
+              items:
+                type: object
+                required: [field, message]
+                properties:
+                  field: { type: string }
+                  message: { type: string }
+
+  responses:
+    ValidationError:
+      description: Invalid body, parameter, or JSON
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          example:
+            error:
+              code: VALIDATION_ERROR
+              message: Descriptions can be at most 500 characters.
+              details: [{ field: description, message: Descriptions can be at most 500 characters. }]
+    NotFound:
+      description: No todo with this id exists
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          example:
+            error: { code: NOT_FOUND, message: This task no longer exists. }
+    InternalError:
+      description: Unexpected server or storage failure (details are logged, never returned)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          example:
+            error: { code: INTERNAL_ERROR, message: Something went wrong. Your change was not saved. }
